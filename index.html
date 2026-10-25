@@ -99,7 +99,7 @@ function render(){
     if(hj.length)h+='<h2>Hoje</h2>'+hj.map(function(i){return row(i,1);}).join("");
     if(nx.length)h+='<h2>Próximos 7 dias</h2>'+nx.map(function(i){return row(i,1);}).join("");
     var rt=S.items.filter(function(i){return (i.rep&&i.dow==now.getDay())||(i.sched&&i.date==td);}).sort(function(a,b){return (a.hora||"")>(b.hora||"")?1:-1;});
-    if(rt.length)h+='<h2>Rotina de hoje</h2>'+rt.map(function(i){return '<div class="row"><div class="c"><div class="t">'+esc(i.title)+'</div><div class="m"><b>'+tname(i.tab)+'</b> · '+(i.hora||"o dia todo")+'</div></div></div>';}).join("");
+    if(rt.length)h+='<h2>Rotina de hoje</h2>'+rt.map(function(i){return '<div class="row"><div class="c"><div class="t">'+esc(i.title)+'</div><div class="m"><b>'+tname(i.tab)+'</b> · '+(i.hora||"o dia todo")+'</div>'+(i.note?'<div class="m" style="white-space:pre-line">'+esc(i.note)+'</div>':'')+'</div></div>';}).join("");
     var cm=getM(CUR),dn=now.getDate(),ct=cm?(cm.fixas||[]).filter(function(f){return !f.pago&&f.dia&&Number(f.dia)<=dn+7;}).sort(function(a,b){return a.dia-b.dia;}):[];
     if(ct.length)h+='<h2>Contas fixas do mês</h2>'+ct.map(function(f){return '<div class="row"><div class="c"><div class="t">'+esc(f.nome||"Conta")+'</div><div class="m'+(Number(f.dia)<dn?' late':'')+'">dia '+f.dia+(f.valor?' · '+brl(f.valor):'')+'</div></div></div>';}).join("");
     if(!p.length&&!ct.length&&!rt.length)h+='<div class="empty">Nada pendente por aqui. Adicione itens com data nas outras abas.</div>';
@@ -124,12 +124,12 @@ var WT={trabalho:"Cronograma da semana",curso:"Aulas da semana",estudos:"Rotina 
 var CW=0;
 function mon(d){var x=new Date(d+"T12:00:00");x.setDate(x.getDate()-((x.getDay()+6)%7));return x;}
 function schedHTML(){
-  var h='<h2>Cronograma da semana (vale só para a semana escolhida)</h2><div class="add"><input id="wt" placeholder="Turno ou atividade"><div class="m">Semana de (qualquer dia dela)</div><input id="wdt" type="date" value="'+ymd(new Date())+'"><div class="w">'+ORD.map(function(d){return '<label class="chip"><input type="checkbox" class="wd" value="'+d+'">'+DN[d]+'</label>';}).join("")+'</div><div class="w"><input id="wh" type="time"><label class="chip"><input type="checkbox" id="wa" onchange="tw(this)">Dia todo</label></div><button onclick="addS()">Adicionar</button></div>';
+  var h='<h2>Importar cronograma (PDF)</h2><div class="add"><input id="wn" placeholder="Seu nome como no PDF (ex.: Gabriel Pereira)" value="'+esc(S.nome||"")+'" oninput="S.nome=this.value;save()"><label class="lk" style="display:block;cursor:pointer">📄 Escolher PDF do cronograma<input type="file" accept="application/pdf" style="display:none" onchange="schedImp(this)"></label><div class="m" id="sm"></div></div><h2>Cronograma da semana (vale só para a semana escolhida)</h2><div class="add"><input id="wt" placeholder="Turno ou atividade"><div class="m">Semana de (qualquer dia dela)</div><input id="wdt" type="date" value="'+ymd(new Date())+'"><div class="w">'+ORD.map(function(d){return '<label class="chip"><input type="checkbox" class="wd" value="'+d+'">'+DN[d]+'</label>';}).join("")+'</div><div class="w"><input id="wh" type="time"><label class="chip"><input type="checkbox" id="wa" onchange="tw(this)">Dia todo</label></div><button onclick="addS()">Adicionar</button></div>';
   var t0=ymd(mon(ymd(new Date()))),last="";
   var l=S.items.filter(function(i){return i.tab=="trabalho"&&i.sched&&i.date>=t0;}).sort(function(a,b){return (a.date+(a.hora||""))>(b.date+(b.hora||""))?1:-1;});
   l.forEach(function(i){
     if(i.date!=last){last=i.date;h+='<div class="m" style="margin:8px 0 4px"><b>'+DN[new Date(i.date+"T12:00:00").getDay()]+' '+fmt(i.date)+'</b></div>';}
-    h+='<div class="row"><div class="c"><div class="t">'+esc(i.title)+'</div><div class="m">'+(i.hora||"dia todo")+'</div></div><button onclick="rm(\''+i.id+'\')" aria-label="Excluir">×</button></div>';
+    h+='<div class="row"><div class="c"><div class="t">'+esc(i.title)+'</div><div class="m">'+(i.hora||"dia todo")+'</div>'+(i.note?'<div class="m" style="white-space:pre-line">'+esc(i.note)+'</div>':'')+'</div><button onclick="rm(\''+i.id+'\')" aria-label="Excluir">×</button></div>';
   });
   if(!l.length)h+='<div class="empty">Nenhum turno cadastrado para esta semana em diante.</div>';
   return h;
@@ -150,12 +150,12 @@ function calHTML(){
     var ds=ymd(x),dw=x.getDay(),ev=[];
     S.items.forEach(function(i){
       if(i.rep){if(i.dow==dw)ev.push({h:i.hora||"",t:i.title,tab:i.tab});}
-      else if(i.date==ds)ev.push({h:i.hora||"",t:i.title,tab:i.tab,done:i.done,id:i.sched?"":i.id});
+      else if(i.date==ds)ev.push({h:i.hora||"",t:i.title,tab:i.tab,done:i.done,n:i.note,id:i.sched?"":i.id});
     });
     var fm2=getM(ds.slice(0,7));
     if(fm2)(fm2.fixas||[]).forEach(function(f){if(!f.pago&&Number(f.dia)==x.getDate())ev.push({h:"",t:(f.nome||"Conta")+(f.valor?" · "+brl(f.valor):""),tab:"financas"});});
     ev.sort(function(a,b){return a.h>b.h?1:-1;});
-    h+='<div class="fc" style="'+(ds==td?'border-color:var(--ac)':'')+'"><div class="fh"><span>'+DN[dw]+' '+fmt(ds)+'</span></div>'+(ev.length?ev.map(function(e){return '<div class="row'+(e.done?' done':'')+'" style="margin-bottom:4px">'+(e.id?'<input type="checkbox" '+(e.done?'checked':'')+' onchange="tg(\''+e.id+'\')">':'')+'<div class="c"><div class="t">'+esc(e.t)+'</div><div class="m">'+tname(e.tab)+' · '+(e.h||"dia todo")+'</div></div></div>';}).join(""):'<div class="m">Livre</div>')+'</div>';
+    h+='<div class="fc" style="'+(ds==td?'border-color:var(--ac)':'')+'"><div class="fh"><span>'+DN[dw]+' '+fmt(ds)+'</span></div>'+(ev.length?ev.map(function(e){return '<div class="row'+(e.done?' done':'')+'" style="margin-bottom:4px">'+(e.id?'<input type="checkbox" '+(e.done?'checked':'')+' onchange="tg(\''+e.id+'\')">':'')+'<div class="c"><div class="t">'+esc(e.t)+'</div><div class="m">'+tname(e.tab)+' · '+(e.h||"dia todo")+'</div>'+(e.n?'<div class="m" style="white-space:pre-line">'+esc(e.n)+'</div>':'')+'</div></div>';}).join(""):'<div class="m">Livre</div>')+'</div>';
   }
   return h;
 }
@@ -205,7 +205,7 @@ function initHol(){
   sv();
 }
 function holHTML(){
-  return '<div class="fc"><div class="fh"><span>Holerite do mês (líquido)</span><b id="hl"></b></div><div class="m">Proventos</div>'+D.hp.map(function(i){return fr('hp',i,'Provento',0);}).join("")+'<button class="lk" onclick="fa(\'hp\')">+ Provento</button><div class="m">Descontos</div>'+D.hd.map(function(i){return fr('hd',i,'Desconto',0);}).join("")+'<button class="lk" onclick="fa(\'hd\')">+ Desconto</button><div class="fr"><span class="n m" id="hs"></span></div><button class="lk" onclick="hu()">Usar líquido como salário</button></div>';
+  return '<div class="fc"><div class="fh"><span>Holerite do mês (líquido)</span><b id="hl"></b></div><div class="m">Proventos</div>'+D.hp.map(function(i){return fr('hp',i,'Provento',0);}).join("")+'<button class="lk" onclick="fa(\'hp\')">+ Provento</button><div class="m">Descontos</div>'+D.hd.map(function(i){return fr('hd',i,'Desconto',0);}).join("")+'<button class="lk" onclick="fa(\'hd\')">+ Desconto</button><div class="fr"><span class="n m" id="hs"></span></div><button class="lk" onclick="hu()">Usar líquido como salário</button><label class="lk" style="display:block;cursor:pointer">📄 Importar holerite (PDF)<input type="file" accept="application/pdf" style="display:none" onchange="holImp(this)"></label><div class="m" id="hm"></div></div>';
 }
 function bkHTML(){
   return '<h2>Backup dos dados</h2><div class="add"><textarea id="bk" rows="4" placeholder="O backup aparece aqui. Para restaurar, cole o texto aqui." style="font:inherit;font-size:12px;color:var(--tx);background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:8px;width:100%"></textarea><div class="w"><button onclick="bkE()">Gerar backup</button><button onclick="bkD()">Baixar arquivo</button><button onclick="bkR()">Restaurar</button></div><div class="m" id="bkm">Restaurar substitui os dados atuais pelos do backup.</div></div>';
@@ -221,6 +221,125 @@ function bkR(){
     if(!S.items)S.items=[];
     loadM();render();
   }catch(e){$("bkm").textContent="Backup inválido. Cole o texto completo gerado pelo app.";}
+}
+function pdfLoad(cb,mid){
+  if(window.pdfjsLib)return cb();
+  var s=document.createElement("script");
+  s.src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+  s.onload=function(){pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";cb();};
+  s.onerror=function(){T(mid||"hm","Não foi possível carregar o leitor de PDF. Verifique a internet.");};
+  document.head.appendChild(s);
+}
+function pnum(s){return /^-?(\d{1,3}(\.\d{3})+|\d+),\d{2}$/.test(s)?parseFloat(s.replace(/\./g,"").replace(",",".")):null;}
+function after(its,label){for(var i=0;i<its.length;i++){if(its[i].s.toLowerCase().indexOf(label)==0){for(var j=i+1;j<Math.min(i+4,its.length);j++){var v=pnum(its[j].s);if(v!==null)return v;}}}return null;}
+function holParse(its){
+  var hP=null,hD=null,yH=null,yT=null;
+  its.forEach(function(i){
+    if(i.s=="Provento"){hP=i.x;yH=i.y;}
+    if(i.s=="Desconto")hD=i.x;
+    if(i.s.toLowerCase().indexOf("total de proventos")==0)yT=i.y;
+  });
+  if(hP===null||hD===null||yH===null||yT===null)return{err:"Não reconheci o formato deste holerite. Preencha manualmente."};
+  var rows=its.filter(function(i){return i.y<yH-2&&i.y>yT+2;}).sort(function(a,b){return b.y-a.y||a.x-b.x;});
+  var groups=[],last=null;
+  rows.forEach(function(i){if(last===null||Math.abs(i.y-last)>3)groups.push([]);groups[groups.length-1].push(i);last=i.y;});
+  var hp=[],hd=[];
+  groups.forEach(function(g){
+    var nm=g.filter(function(i){return i.x<hP-20&&pnum(i.s)===null&&!/^\d+$/.test(i.s);}).map(function(i){return i.s;}).join(" ");
+    g.forEach(function(i){
+      var v=pnum(i.s);if(v===null||i.x<hP-5)return;
+      var o={id:uid(),nome:nm.charAt(0)+nm.slice(1).toLowerCase(),valor:v};
+      if(i.x>=hD-3)hd.push(o);else hp.push(o);
+    });
+  });
+  if(!hp.length)return{err:"Não encontrei os proventos. Preencha manualmente."};
+  return{hp:hp,hd:hd,tL:after(its,"total líquido")};
+}
+function holImp(inp){
+  var f=inp.files[0];inp.value="";if(!f)return;
+  T("hm","Lendo o PDF...");
+  pdfLoad(function(){
+    var rd=new FileReader();
+    rd.onerror=function(){T("hm","Não consegui abrir o arquivo.");};
+    rd.onload=function(){
+      pdfjsLib.getDocument({data:new Uint8Array(rd.result)}).promise.then(function(pdf){return pdf.getPage(1);}).then(function(pg){return pg.getTextContent();}).then(function(tc){
+        var its=tc.items.filter(function(x){return x.str.trim();}).map(function(x){return{s:x.str.trim(),x:x.transform[4],y:x.transform[5]};});
+        var r=holParse(its);
+        if(r.err){T("hm",r.err);return;}
+        D.hp=r.hp;D.hd=r.hd;D.salario=liq(D);sv();
+        var ok=r.tL===null||Math.abs(r.tL-D.salario)<0.05;
+        render();
+        T("hm",ok?"Holerite importado. Líquido: "+brl(D.salario)+". Confira os valores.":"Importado, mas o líquido calculado ("+brl(D.salario)+") difere do PDF ("+brl(r.tL)+"). Confira os itens.");
+      }).catch(function(){T("hm","Não consegui ler este PDF. Preencha manualmente.");});
+    };
+    rd.readAsArrayBuffer(f);
+  });
+}
+function nrm(s){return String(s).normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();}
+function schedParse(its,nome){
+  var hdr=[],year=null;
+  its.forEach(function(i){
+    var m=i.s.match(/^(SEG|TER|QUA|QUI|SEX|S[ÁA]B|DOM)\s+(\d{2})\/(\d{2})$/);
+    if(m)hdr.push({x:i.x,y:i.y,d:+m[2],m:+m[3]});
+    var e=i.s.match(/Exportado em:\s*\d{2}\/\d{2}\/(\d{4})/);if(e)year=+e[1];
+  });
+  if(!hdr.length)return{err:"Não reconheci o formato deste cronograma."};
+  hdr.sort(function(a,b){return a.x-b.x;});
+  year=year||new Date().getFullYear();
+  var dates=hdr.map(function(h,k){var y=year+(h.m<hdr[0].m?1:0);return y+"-"+String(h.m).padStart(2,"0")+"-"+String(h.d).padStart(2,"0");});
+  var yH=hdr[0].y,bd=[];
+  for(var k=1;k<hdr.length;k++)bd.push((hdr[k-1].x+hdr[k].x)/2);
+  var xMin=hdr[0].x-80;
+  var left=its.filter(function(i){return i.x<xMin&&i.y<yH-2;}).sort(function(a,b){return b.y-a.y;});
+  var ps=[],cur=[],skip=false;
+  left.forEach(function(i){
+    if(skip){skip=false;return;}
+    if(i.s.indexOf("RE:")==0){if(cur.length)ps.push({name:cur.map(function(c){return c.s;}).join(" "),top:cur[0].y});cur=[];skip=true;return;}
+    cur.push(i);
+  });
+  var tk=nrm(nome||"").split(/\s+/).filter(Boolean);
+  if(!tk.length)return{err:"Digite seu nome como aparece no PDF."};
+  var ms=ps.filter(function(p){return tk.every(function(t){return nrm(p.name).indexOf(t)>=0;});});
+  if(!ms.length)return{err:"Não encontrei esse nome no cronograma."};
+  if(ms.length>1)return{err:"Mais de uma pessoa tem esse nome. Digite o nome completo."};
+  var ix=ps.indexOf(ms[0]),yTop=ms[0].top+6,yBot=ix+1<ps.length?ps[ix+1].top+6:-1e9;
+  var cells=its.filter(function(i){return i.x>=xMin&&i.y<=yTop&&i.y>yBot&&i.y<yH-2;}).sort(function(a,b){return b.y-a.y;});
+  var cols=dates.map(function(){return[];});
+  cells.forEach(function(i){var c=bd.filter(function(b){return i.x>b;}).length;cols[c].push(i);});
+  var out=[];
+  cols.forEach(function(col,c){
+    var acts=[],prev=null;
+    col.forEach(function(l){if(prev===null||prev-l.y>14)acts.push([]);acts[acts.length-1].push(l.s);prev=l.y;});
+    acts.forEach(function(a){
+      var t=[],d="",inD=false;
+      a.forEach(function(x){if(x.charAt(0)=="-")inD=true;if(inD)d+=(x.charAt(0)=="-"&&d?"\n":(d?" ":""))+x;else t.push(x);});
+      out.push({date:dates[c],title:t.join(" "),note:d});
+    });
+  });
+  return{dates:dates,acts:out};
+}
+function schedImp(inp){
+  var f=inp.files[0];inp.value="";if(!f)return;
+  var nm=($("wn")||{}).value||S.nome||"";
+  if(!nm.trim()){T("sm","Digite seu nome como aparece no PDF.");return;}
+  S.nome=nm;save();
+  T("sm","Lendo o PDF...");
+  pdfLoad(function(){
+    var rd=new FileReader();
+    rd.onerror=function(){T("sm","Não consegui abrir o arquivo.");};
+    rd.onload=function(){
+      pdfjsLib.getDocument({data:new Uint8Array(rd.result)}).promise.then(function(pdf){return pdf.getPage(1);}).then(function(pg){return pg.getTextContent();}).then(function(tc){
+        var its=tc.items.filter(function(x){return x.str.trim();}).map(function(x){return{s:x.str.trim(),x:x.transform[4],y:x.transform[5]};});
+        var r=schedParse(its,nm);
+        if(r.err){T("sm",r.err);return;}
+        S.items=S.items.filter(function(i){return !(i.tab=="trabalho"&&i.sched&&r.dates.indexOf(i.date)>=0);});
+        r.acts.forEach(function(a){S.items.push({id:uid(),tab:"trabalho",sched:1,date:a.date,hora:"",title:a.title,note:a.note});});
+        save();render();
+        T("sm","Importado: "+r.acts.length+" atividade(s) em "+r.dates.length+" dia(s). Confira abaixo.");
+      }).catch(function(){T("sm","Não consegui ler este PDF. Cadastre à mão.");});
+    };
+    rd.readAsArrayBuffer(f);
+  },"sm");
 }
 function hu(){D.salario=liq(D);sv();render();}
 function sum(a){return a.reduce(function(s,i){return s+(Number(i.valor)||0);},0);}
